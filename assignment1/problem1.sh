@@ -18,14 +18,34 @@ while IFS= read -r line; do
   lscpu_fields["$key"]="$value"
 done <<< "$cpu_info"
 
+get_lscpu_value() {
+  local field_name
+
+  for field_name in "$@"; do
+    if [[ -n "${lscpu_fields[$field_name]:-}" ]]; then
+      printf '%s\n' "${lscpu_fields[$field_name]}"
+      return 0
+    fi
+  done
+
+  printf '%s\n' "Unknown"
+}
+
 model=${lscpu_fields["Model name"]:-Unknown}
-clock_mhz=${lscpu_fields["CPU max MHz"]:-${lscpu_fields["CPU MHz"]:-Unknown}}
-sockets=${lscpu_fields["Socket(s)"]:-0}
-cores_per_socket=${lscpu_fields["Core(s) per socket"]:-0}
-hardware_threads=${lscpu_fields["CPU(s)"]:-0}
+nominal_clock_mhz=$(get_lscpu_value "CPU max MHz" "Max MHz")
+current_clock_mhz=$(get_lscpu_value "CPU MHz" "Current MHz")
+min_clock_mhz=$(get_lscpu_value "CPU min MHz" "Min MHz")
+max_clock_mhz=$(get_lscpu_value "CPU max MHz" "Max MHz")
+sockets=$(get_lscpu_value "Socket(s)")
+cores_per_socket=$(get_lscpu_value "Core(s) per socket")
+hardware_threads=$(get_lscpu_value "CPU(s)")
 total_cores=$((sockets * cores_per_socket))
 architecture=${lscpu_fields["Architecture"]:-Unknown}
 cache_line_length=$(getconf LEVEL1_DCACHE_LINESIZE)
+l1d_cache=$(get_lscpu_value "L1d" "L1d cache")
+l1i_cache=$(get_lscpu_value "L1i" "L1i cache")
+l2_cache=$(get_lscpu_value "L2" "L2 cache")
+l3_cache=$(get_lscpu_value "L3" "L3 cache")
 gpu_count=0
 gpu_models="Unknown"
 gpu_memory="Unknown"
@@ -59,14 +79,24 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   fi
 fi
 
+if [[ "$nominal_clock_mhz" != "Unknown" ]]; then
+  clock_frequency="$nominal_clock_mhz MHz"
+elif [[ "$min_clock_mhz" != "Unknown" || "$max_clock_mhz" != "Unknown" ]]; then
+  clock_frequency="min ${min_clock_mhz} MHz, max ${max_clock_mhz} MHz"
+elif [[ "$current_clock_mhz" != "Unknown" ]]; then
+  clock_frequency="$current_clock_mhz MHz"
+else
+  clock_frequency="Unknown"
+fi
 
-echo "The model of and the clock frequency1 of the CPU: $model, $clock_mhz MHz"
+
+echo "The model of and the clock frequency1 of the CPU: $model, $clock_frequency"
 echo "The number of physical CPUs (sockets in use): $sockets"
 echo "The number of cores: $total_cores"
 echo "The number of hardware threads: $hardware_threads"
 echo "The instruction set architecture of the CPU: $architecture"
 echo "The cache line length: $cache_line_length"
-echo "The amount of L1, L2, and L3 cache: L1d: ${lscpu_fields["L1d"]:-Unknown}, L1i: ${lscpu_fields["L1i"]:-Unknown}, L2: ${lscpu_fields["L2"]:-Unknown}, L3: ${lscpu_fields["L3"]:-Unknown}"
+echo "The amount of L1, L2, and L3 cache: L1d: $l1d_cache, L1i: $l1i_cache, L2: $l2_cache, L3: $l3_cache"
 echo "The amount of system RAM: $(free -h | awk '/^Mem:/ {print $2}')"
 echo "The number of GPUs and model of the GPU(s): $gpu_count GPU(s), Model(s): $gpu_models"
 echo "The amount of RAM on the GPU(s): $gpu_memory"
