@@ -66,11 +66,17 @@ if [[ -n "${lscpu_fields["CPU max MHz"]:-}" ]]; then
 elif [[ -n "${lscpu_fields["Max MHz"]:-}" ]]; then
   clock_frequency="${lscpu_fields["Max MHz"]} MHz"
 else
-  min_clock=$(awk 'BEGIN {min=""} {if (min=="" || $1 < min) min=$1} END {print min}' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null)
-  max_clock=$(awk 'BEGIN {max=0} {if ($1 > max) max=$1} END {print max}' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null)
+  cpufreq_files=(/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq)
 
-  if [[ -n "$min_clock" && -n "$max_clock" && "$min_clock" != "0" && "$max_clock" != "0" ]]; then
-    clock_frequency="min $(awk "BEGIN {printf \"%.3f\", $min_clock / 1000}") MHz, max $(awk "BEGIN {printf \"%.3f\", $max_clock / 1000}") MHz"
+  if [[ -e "${cpufreq_files[0]}" ]]; then
+    min_clock=$(awk 'BEGIN {min=""} {if (min=="" || $1 < min) min=$1} END {print min}' "${cpufreq_files[@]}" 2>/dev/null || true)
+    max_clock=$(awk 'BEGIN {max=0} {if ($1 > max) max=$1} END {print max}' "${cpufreq_files[@]}" 2>/dev/null || true)
+
+    if [[ -n "$min_clock" && -n "$max_clock" && "$min_clock" != "0" && "$max_clock" != "0" ]]; then
+      clock_frequency="min $(awk "BEGIN {printf \"%.3f\", $min_clock / 1000}") MHz, max $(awk "BEGIN {printf \"%.3f\", $max_clock / 1000}") MHz"
+    else
+      clock_frequency="Unknown"
+    fi
   else
     clock_frequency="Unknown"
   fi
