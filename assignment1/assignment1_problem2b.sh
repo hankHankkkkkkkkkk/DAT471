@@ -15,7 +15,7 @@ export JOB_DIR
 apptainer exec --bind "$JOB_DIR:$JOB_DIR" "$JOB_DIR/assignment1.sif" bash -s <<'EOF'
 set -euo pipefail
 
-dataset="/data/courses/2026 dat471 dit066/datasets/bike sharing hourly.csv"
+dataset="/data/courses/2026_dat471_dit066/datasets/bike_sharing_hourly.csv"
 
 if [[ ! -f "$dataset" ]]; then
   echo "Could not find the bike sharing dataset: $dataset"
