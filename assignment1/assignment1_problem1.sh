@@ -28,9 +28,21 @@ l1d_cache=${lscpu_fields["L1d cache"]:-${lscpu_fields["L1d"]:-Unknown}}
 l1i_cache=${lscpu_fields["L1i cache"]:-${lscpu_fields["L1i"]:-Unknown}}
 l2_cache=${lscpu_fields["L2 cache"]:-${lscpu_fields["L2"]:-Unknown}}
 l3_cache=${lscpu_fields["L3 cache"]:-${lscpu_fields["L3"]:-Unknown}}
+kernel_version=$(uname -r)
+distro_name="Unknown"
+distro_version="Unknown"
 gpu_count=0
 gpu_models="Unknown"
 gpu_memory="Unknown"
+
+if [[ -r /etc/os-release ]]; then
+  distro_name=$(awk -F= '/^NAME=/{gsub(/"/, "", $2); print $2; exit}' /etc/os-release)
+  distro_version=$(awk -F= '/^VERSION=/{gsub(/"/, "", $2); print $2; exit}' /etc/os-release)
+
+  if [[ -z "$distro_version" || "$distro_version" == "Unknown" ]]; then
+    distro_version=$(awk -F= '/^VERSION_ID=/{gsub(/"/, "", $2); print $2; exit}' /etc/os-release)
+  fi
+fi
 
 if command -v nvidia-smi >/dev/null 2>&1; then
   gpu_info=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true)
@@ -107,4 +119,12 @@ echo "The number of GPUs and model of the GPU(s): $gpu_count GPU(s), Model(s): $
 echo "The amount of RAM on the GPU(s): $gpu_memory"
 echo "The type of filesystem of /data: $(df -T /data | tail -1 | awk '{print $2}')"
 echo "The total amount of disk space and the amount of free space on /data: $(df -h /data | tail -1 | awk '{print $2 " total, " $4 " free"}')"
-echo "The filename and the version of the default Python 3 interpreter available on the system (globally installed): $(python3 --version 2>/dev/null || echo "Not found")"
+echo "The version of the Linux kernel running on the system: $kernel_version"
+echo "The GNU/Linux distribution and its version running on the system: $distro_name $distro_version"
+if command -v python3 >/dev/null 2>&1; then
+  python3_path=$(command -v python3)
+  python3_version=$(python3 --version 2>/dev/null | awk '{print $2}')
+  echo "The filename and the version of the default Python 3 interpreter available on the system (globally installed): $python3_path, Python $python3_version"
+else
+  echo "The filename and the version of the default Python 3 interpreter available on the system (globally installed): Not found"
+fi
